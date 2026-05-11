@@ -4,16 +4,10 @@ PKG_NAME:=luci-app-qtun
 PKG_VERSION:=1.0
 PKG_RELEASE:=1
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
-PKG_BUILD_PARALLEL:=1
-PKG_FLAGS:=nonshared
-
-PKG_LICENSE:=MIT
-PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Azy <azyanggara2707@gmail.com>
+PKG_LICENSE:=MIT
 
 include $(INCLUDE_DIR)/package.mk
-
 
 define Package/luci-app-qtun
   SECTION:=luci
@@ -21,33 +15,19 @@ define Package/luci-app-qtun
   SUBMENU:=3. Applications
   TITLE:=LuCI interface for Q-Tunneling
   URL:=https://github.com/QcomWrt/luci-app-qtun
-  DEPENDS:=+bash +curl +ca-bundle +ca-certificates +gunzip +jq
-  PKGARCH:=all
+  # Tambahkan luci-compat agar jalan di OpenWrt 21, 22, 23
+  DEPENDS:=+bash +curl +ca-bundle +ca-certificates +gunzip +jq +luci-compat
+  # JANGAN gunakan PKGARCH:=all karena ada binary di dalamnya
 endef
 
 define Package/luci-app-qtun/description
- Universal LuCI interface for Q-Tunneling with ZiVPN,
- Clash (Mihomo), SSH, SSH-WS, SSH-SSL and Q-Load core support.
+  Universal LuCI interface for Q-Tunneling with multi-core support.
 endef
 
-
-LUCI_TITLE:=Q-Tunneling
-LUCI_DEPENDS:=+luci-compat
-LUCI_PKGARCH:=all
-
-
-MIHOMO_VER:=v1.19.9
-QLOAD_VER:=v1.0.0
-ZIVPN_VER:=udp-zivpn_1.4.9
-
-MIHOMO_URL:=https://github.com/MetaCubeX/Mihomo/releases/download/$(MIHOMO_VER)
-QLOAD_URL:=https://github.com/QcomWrt/Q-load/releases/download/$(QLOAD_VER)
-ZIVPN_URL:=https://github.com/zahidbd2/udp-zivpn/releases/download/$(ZIVPN_VER)
-
-
-# Runtime binary architecture mapping
+# Mapping ARCH untuk download core
+# SDK OpenWrt biasanya mengirimkan ARCH seperti x86_64, aarch64, atau arm
 ifneq ($(findstring x86_64,$(ARCH)),)
-  M_ARCH:=amd64
+  M_ARCH:=amd64-compatible
   Q_ARCH:=amd64
   Z_ARCH:=amd64
 else ifneq ($(findstring aarch64,$(ARCH)),)
@@ -59,70 +39,54 @@ else ifneq ($(findstring arm,$(ARCH)),)
   Q_ARCH:=armv7
   Z_ARCH:=arm
 else
-  $(error Unsupported ARCH: $(ARCH))
+  M_ARCH:=amd64-compatible
+  Q_ARCH:=amd64
+  Z_ARCH:=amd64
 endif
 
+MIHOMO_VER:=v1.19.9
+QLOAD_VER:=v1.0.0
+ZIVPN_VER:=udp-zivpn_1.4.9
 
 define Build/Prepare
 	$(call Build/Prepare/Default)
-
-	$(INSTALL_DIR) $(PKG_BUILD_DIR)/cores
-	rm -f $(PKG_BUILD_DIR)/cores/*
-
-	curl -fL $(MIHOMO_URL)/mihomo-linux-$(M_ARCH)-compatible-$(MIHOMO_VER).gz \
-		-o $(PKG_BUILD_DIR)/cores/clash.gz
+	mkdir -p $(PKG_BUILD_DIR)/cores
+	
+	# Download Cores secara dinamis saat build
+	curl -fL https://github.com/MetaCubeX/Mihomo/releases/download/$(MIHOMO_VER)/mihomo-linux-$(M_ARCH)-$(MIHOMO_VER).gz -o $(PKG_BUILD_DIR)/cores/clash.gz
 	gunzip -f $(PKG_BUILD_DIR)/cores/clash.gz
+	mv $(PKG_BUILD_DIR)/cores/clash $(PKG_BUILD_DIR)/cores/clash_core
 
-	curl -fL $(QLOAD_URL)/q-load-linux-$(Q_ARCH) \
-		-o $(PKG_BUILD_DIR)/cores/q-load
-
-	curl -fL $(ZIVPN_URL)/udp-zivpn-linux-$(Z_ARCH) \
-		-o $(PKG_BUILD_DIR)/cores/zivpn
-
-	chmod +x \
-		$(PKG_BUILD_DIR)/cores/clash \
-		$(PKG_BUILD_DIR)/cores/q-load \
-		$(PKG_BUILD_DIR)/cores/zivpn
+	curl -fL https://github.com/QcomWrt/Q-load/releases/download/$(QLOAD_VER)/q-load-linux-$(Q_ARCH) -o $(PKG_BUILD_DIR)/cores/q-load
+	curl -fL https://github.com/zahidbd2/udp-zivpn/releases/download/$(ZIVPN_VER)/udp-zivpn-linux-$(Z_ARCH) -o $(PKG_BUILD_DIR)/cores/zivpn
+	
+	chmod +x $(PKG_BUILD_DIR)/cores/*
 endef
-
 
 define Build/Compile
 	true
 endef
 
-
 define Package/luci-app-qtun/install
-
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./etc/config/qtun $(1)/etc/config/qtun
-
 
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./etc/init.d/qtun_autoboot $(1)/etc/init.d/qtun_autoboot
 
-
 	$(INSTALL_DIR) $(1)/etc/qtun/action
-	$(INSTALL_DIR) $(1)/etc/qtun/config/clash
-	$(INSTALL_DIR) $(1)/etc/qtun/config/zivpn
-	$(INSTALL_DIR) $(1)/etc/qtun/core
-	$(INSTALL_DIR) $(1)/etc/qtun/run
-
-
 	$(INSTALL_BIN) ./etc/qtun/action/*.sh $(1)/etc/qtun/action/
 
-
-	$(INSTALL_CONF) ./etc/qtun/config/clash/zivpn.yaml \
-		$(1)/etc/qtun/config/clash/zivpn.yaml
-
-
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cores/clash $(1)/etc/qtun/core/clash
+	$(INSTALL_DIR) $(1)/etc/qtun/core
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cores/clash_core $(1)/etc/qtun/core/clash
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cores/q-load $(1)/etc/qtun/core/q-load
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cores/zivpn $(1)/etc/qtun/core/zivpn
 
-
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci
 	$(CP) ./usr/lib/lua/luci/* $(1)/usr/lib/lua/luci/
+	
+	# Copy sisa folder config dsb
+	$(CP) ./etc/qtun/config $(1)/etc/qtun/
 endef
-
 
 $(eval $(call BuildPackage,luci-app-qtun))
