@@ -38,10 +38,10 @@ else ifneq ($(findstring arm,$(ARCH)),)
   M_ARCH:=armv7
   Q_ARCH:=armv7
   Z_ARCH:=arm
-else
-  M_ARCH:=amd64-compatible
-  Q_ARCH:=amd64
-  Z_ARCH:=amd64
+#else
+#  M_ARCH:=amd64-compatible
+#  Q_ARCH:=amd64
+#  Z_ARCH:=amd64
 endif
 
 MIHOMO_VER:=v1.19.9
