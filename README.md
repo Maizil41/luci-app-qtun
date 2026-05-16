@@ -30,12 +30,15 @@ Dirancang untuk OpenWrt dengan auto-download core saat build dan integrasi penuh
 
 ---
 
-## 📦 Instalasi Package (.ipk)
+## 📦 Instalasi Package (.ipk / .apk)
 
 ### Metode SCP
 
 ```bash
 scp luci-app-qtun.ipk root@192.168.1.1:/tmp/
+```
+```bash
+scp luci-app-qtun.apk root@192.168.1.1:/tmp/
 ```
 
 ### Install
@@ -43,6 +46,10 @@ scp luci-app-qtun.ipk root@192.168.1.1:/tmp/
 ```bash
 opkg update
 opkg install /tmp/luci-app-qtun.ipk
+```
+```bash
+apk update
+apk add --allow-untrusted /tmp/luci-app-qtun.apk
 ```
 
 ### Restart LuCI
@@ -63,7 +70,11 @@ reboot
 
 ```bash
 opkg update
-opkg install luci bash curl ca-bundle ca-certificates gunzip jq
+opkg install luci-compat bash curl ca-bundle ca-certificates jq
+```
+```bash
+apk update
+apk add luci-compat bash curl ca-bundle ca-certificates jq
 ```
 
 ---
